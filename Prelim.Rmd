@@ -1,0 +1,77 @@
+---
+title: "Preliminary Analysis of Air Quality Data"
+author: "[Your Team Name]"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+This document provides an initial exploration of the air quality dataset to assess its structure, completeness, and basic statistical properties.
+
+## Load Required Libraries
+```{r}
+library(readxl)
+library(dplyr)
+library(ggplot2)
+```
+
+## Load Dataset
+```{r}
+# Read the dataset from Excel file
+dataset <- read_excel("AirQuality.xlsx")
+
+# Display first few rows
+head(dataset)
+```
+
+## Data Structure
+```{r}
+# Check structure of the dataset
+str(dataset)
+
+# Summary statistics
+summary(dataset)
+```
+
+## Missing Values Analysis
+```{r}
+# Count missing values per column
+colSums(is.na(dataset))
+```
+
+## Preliminary Data Visualization
+### Distribution of Ozone Levels
+```{r}
+# Ensure Arithmetic Mean is numeric and handle non-numeric values
+dataset$`Arithmetic Mean` <- as.numeric(as.character(dataset$`Arithmetic Mean`))
+
+# Filter out missing or zero values
+dataset_filtered <- dataset %>% filter(!is.na(`Arithmetic Mean`), `Arithmetic Mean` > 0)
+
+# Check if filtered dataset has valid values
+if(nrow(dataset_filtered) > 0) {
+  ggplot(dataset_filtered, aes(x = `Arithmetic Mean`)) +
+    geom_histogram(binwidth = 0.01, fill = "blue", alpha = 0.7) +
+    labs(title = "Distribution of Ozone Levels", x = "Ozone Concentration (ppm)", y = "Count")
+} else {
+  print("No valid data available for plotting.")
+}
+```
+
+### Time Series of Ozone Levels (If Date Available)
+```{r}
+if("1st Max DateTime" %in% colnames(dataset)) {
+  dataset$`1st Max DateTime` <- as.POSIXct(dataset$`1st Max DateTime`, format="%m/%d/%Y %H:%M", tz="UTC")
+  
+  ggplot(dataset, aes(x = `1st Max DateTime`, y = `Arithmetic Mean`)) +
+    geom_line(color = "red") +
+    labs(title = "Ozone Levels Over Time", x = "Date", y = "Ozone Concentration (ppm)")
+}
+```
+
+## Conclusion
+The dataset has been successfully loaded and explored. Initial findings suggest that the dataset includes multiple pollutant measurements, and missing values may need to be addressed. Further analysis will focus on trends and relationships between pollutants across regions.
