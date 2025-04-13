@@ -25,7 +25,7 @@ library(anomalize)
 
 years <- 2015:2024
 data_list <- lapply(years, function(y) {
-  df <- read_csv(paste0("annual_conc_by_monitor_", y, ".csv"))
+  df <- read_csv(paste0("../data/annual_conc_by_monitor_", y, ".csv"))
   df$Year <- y
   return(df)
 })

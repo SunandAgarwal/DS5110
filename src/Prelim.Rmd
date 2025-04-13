@@ -22,7 +22,7 @@ library(ggplot2)
 ## Load Dataset
 ```{r}
 # Read the dataset from Excel file
-dataset <- read_excel("AirQuality.xlsx")
+dataset <- read_excel("../data/AirQuality.xlsx")
 
 # Display first few rows
 head(dataset)
