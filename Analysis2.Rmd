@@ -1,0 +1,106 @@
+---
+title: "Preliminary Code DS 5110 Project"
+author: "Zach Balgut Tan"
+date: "2025-04-02"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+This document provides an initial exploration of the air quality dataset to assess its structure, completeness, and basic statistical properties.
+
+## Load Required Libraries
+```{r}
+# Load Required Libraries
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(tidyr)
+library(lubridate)
+library(forecast)
+library(anomalize)
+
+years <- 2015:2024
+data_list <- lapply(years, function(y) {
+  df <- read_csv(paste0("annual_conc_by_monitor_", y, ".csv"))
+  df$Year <- y
+  return(df)
+})
+
+data_all <- bind_rows(data_list)
+
+# Filter for PM2.5 variants
+pm25_data <- data_all %>% 
+  filter(grepl("PM2.5", `Parameter Name`))
+
+# Standardize name
+pm25_data$`Parameter Name` <- "PM2.5"
+
+# Create unique site ID
+pm25_data <- pm25_data %>%
+  mutate(
+    id = paste(
+      sprintf("%02d", as.numeric(`State Code`)),
+      sprintf("%03d", as.numeric(`County Code`)),
+      sprintf("%04d", as.numeric(`Site Num`)),
+      sprintf("%05d", as.numeric(`Parameter Code`)),
+      sep = "-"
+    )
+  )
+
+# Keep sites with data for all 10 years
+site_counts <- pm25_data %>%
+  group_by(id) %>%
+  summarise(years_present = n_distinct(Year)) %>%
+  filter(years_present == 10)
+
+pm25_data_filtered <- pm25_data %>%
+  filter(id %in% site_counts$id)
+
+# Pick one site to focus on
+focus_site <- pm25_data_filtered %>%
+  count(id, sort = TRUE) %>%
+  slice(1) %>%
+  pull(id)
+
+pm25_site <- pm25_data_filtered %>% filter(id == focus_site)
+
+# Summarize by year (average and max)
+pm25_summary <- pm25_site %>%
+  group_by(Year) %>%
+  summarise(mean_pm25 = mean(`Arithmetic Mean`, na.rm = TRUE),
+            max_pm25 = max(`1st Max Value`, na.rm = TRUE))
+
+# Plot 1: Annual mean trend
+ggplot(pm25_summary, aes(x = Year, y = mean_pm25)) +
+  geom_line() + geom_point(size = 3) +
+  labs(title = paste("Annual Mean PM2.5 Levels:", focus_site),
+       x = "Year", y = "Mean PM2.5 (µg/m³)") +
+  theme_minimal()
+
+# Time series object
+pm25_ts <- ts(pm25_summary$mean_pm25, start = 2015)
+
+# Simple anomaly detection
+pm25_summary <- pm25_summary %>%
+  mutate(threshold = quantile(mean_pm25, 0.95),
+         is_anomaly = mean_pm25 > threshold)
+
+# Plot 2: Highlight anomalies
+ggplot(pm25_summary, aes(x = Year, y = mean_pm25)) +
+  geom_line() +
+  geom_point(aes(color = is_anomaly), size = 4) +
+  scale_color_manual(values = c("black", "red")) +
+  labs(title = "Detected Anomalies in PM2.5 Levels (95th percentile)",
+       x = "Year", y = "Mean PM2.5 (µg/m³)") +
+  theme_minimal()
+
+# Extra: Boxplot by year
+ggplot(pm25_site, aes(x = factor(Year), y = `Arithmetic Mean`)) +
+  geom_boxplot() +
+  labs(title = "PM2.5 Distribution by Year", x = "Year", y = "Arithmetic Mean (µg/m³)") +
+  theme_minimal()
+```

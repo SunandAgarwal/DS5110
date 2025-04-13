@@ -1,0 +1,107 @@
+---
+title: "Preliminary Code DS 5110 Project"
+author: "Zach Balgut Tan"
+date: "2025-04-02"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+This document provides an initial exploration of the air quality dataset to assess its structure, completeness, and basic statistical properties.
+
+## Load Required Libraries
+```{r}
+# Load Required Libraries
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(tidyr)
+library(lubridate)
+library(forecast)
+library(anomalize)
+
+# Load Data (adjust path if needed)
+years <- 2015:2024
+data_list <- lapply(years, function(y) {
+  df <- read_csv(paste0("annual_conc_by_monitor_", y, ".csv"))
+  df$Year <- y
+  return(df)
+})
+
+# Combine into one DataFrame
+data_all <- bind_rows(data_list)
+
+# Filter for Ozone only
+ozone_data <- data_all %>% 
+  filter(`Parameter Name` == "Ozone")
+
+# Create unique site ID
+ozone_data <- ozone_data %>%
+  mutate(
+    id = paste(
+      sprintf("%02d", as.numeric(`State Code`)),
+      sprintf("%03d", as.numeric(`County Code`)),
+      sprintf("%04d", as.numeric(`Site Num`)),
+      sprintf("%05d", as.numeric(`Parameter Code`)),
+      sep = "-"
+    )
+  )
+
+
+# Keep sites with data for all 10 years
+site_counts <- ozone_data %>%
+  group_by(id) %>%
+  summarise(years_present = n_distinct(Year)) %>%
+  filter(years_present == 10)
+
+ozone_data_filtered <- ozone_data %>%
+  filter(id %in% site_counts$id)
+
+# Optional: pick one site to focus on
+focus_site <- ozone_data_filtered %>%
+  count(id, sort = TRUE) %>%
+  slice(1) %>%
+  pull(id)
+
+ozone_site <- ozone_data_filtered %>% filter(id == focus_site)
+
+# Summarize by year (average and max)
+ozone_summary <- ozone_site %>%
+  group_by(Year) %>%
+  summarise(mean_ozone = mean(`Arithmetic Mean`, na.rm = TRUE),
+            max_ozone = max(`1st Max Value`, na.rm = TRUE))
+
+# Plot 1: Annual mean trend
+ggplot(ozone_summary, aes(x = Year, y = mean_ozone)) +
+  geom_line() + geom_point(size = 3) +
+  labs(title = paste("Annual Mean Ozone Levels:", focus_site),
+       x = "Year", y = "Mean Ozone (ppm)") +
+  theme_minimal()
+
+# Time Series Analysis & Anomaly Detection
+# We'll use mean per year for a basic ts analysis
+ozone_ts <- ts(ozone_summary$mean_ozone, start = 2015)
+
+# Simple anomaly detection: flag years where ozone is above 95th percentile
+ozone_summary <- ozone_summary %>%
+  mutate(threshold = quantile(mean_ozone, 0.95),
+         is_anomaly = mean_ozone > threshold)
+
+# Plot 2: Highlight anomalies
+ggplot(ozone_summary, aes(x = Year, y = mean_ozone)) +
+  geom_line() +
+  geom_point(aes(color = is_anomaly), size = 4) +
+  scale_color_manual(values = c("black", "red")) +
+  labs(title = "Detected Anomalies in Ozone Levels (95th percentile)",
+       x = "Year", y = "Mean Ozone (ppm)") +
+  theme_minimal()
+
+# Extra: Boxplot by year
+ggplot(ozone_site, aes(x = factor(Year), y = `Arithmetic Mean`)) +
+  geom_boxplot() +
+  labs(title = "Ozone Distribution by Year", x = "Year", y = "Arithmetic Mean (ppm)") +
+  theme_minimal()
+```
