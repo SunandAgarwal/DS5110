@@ -94,6 +94,7 @@ ggplot(pm25_summary, aes(x = Year, y = mean_pm25)) +
   geom_line() +
   geom_point(aes(color = is_anomaly), size = 4) +
   scale_color_manual(values = c("black", "red")) +
+  scale_x_continuous(breaks = 2015:2024) +  # Ensure all years appear on x-axis
   labs(title = "Detected Anomalies in PM2.5 Levels (95th percentile)",
        x = "Year", y = "Mean PM2.5 (µg/m³)") +
   theme_minimal()

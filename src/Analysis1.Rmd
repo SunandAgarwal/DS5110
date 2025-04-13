@@ -90,11 +90,12 @@ ozone_summary <- ozone_summary %>%
   mutate(threshold = quantile(mean_ozone, 0.95),
          is_anomaly = mean_ozone > threshold)
 
-# Plot 2: Highlight anomalies
+# Plot 2: Highlight anomalies with all years shown on x-axis
 ggplot(ozone_summary, aes(x = Year, y = mean_ozone)) +
   geom_line() +
   geom_point(aes(color = is_anomaly), size = 4) +
   scale_color_manual(values = c("black", "red")) +
+  scale_x_continuous(breaks = 2015:2024) +  # Ensure all years appear on x-axis
   labs(title = "Detected Anomalies in Ozone Levels (95th percentile)",
        x = "Year", y = "Mean Ozone (ppm)") +
   theme_minimal()
