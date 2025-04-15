@@ -68,6 +68,8 @@ focus_site <- ozone_data_filtered %>%
 
 ozone_site <- ozone_data_filtered %>% filter(id == focus_site)
 
+
+
 # Summarize by year (average and max)
 ozone_summary <- ozone_site %>%
   group_by(Year) %>%
@@ -90,6 +92,7 @@ ozone_summary <- ozone_summary %>%
   mutate(threshold = quantile(mean_ozone, 0.95),
          is_anomaly = mean_ozone > threshold)
 
+
 # Plot 2: Highlight anomalies with all years shown on x-axis
 ggplot(ozone_summary, aes(x = Year, y = mean_ozone)) +
   geom_line() +
@@ -105,4 +108,61 @@ ggplot(ozone_site, aes(x = factor(Year), y = `Arithmetic Mean`)) +
   geom_boxplot() +
   labs(title = "Ozone Distribution by Year", x = "Year", y = "Arithmetic Mean (ppm)") +
   theme_minimal()
+```
+Trying US static heatmap
+```{r}
+library(ggplot2)
+library(maps)
+
+# get the map data for states
+us_states <- map_data("state")
+head(us_states)
+# has columns: long, lat, group, order, region, subregion
+
+# convert state names to lowercase
+ozone_data_filtered$region <- tolower(ozone_data_filtered$"State Name")
+
+ozone_data_states <- ozone_data_filtered %>%
+  group_by(region, Year) %>%
+  summarise(ozone_avg = mean(`Arithmetic Mean`, na.rm = TRUE),
+            max_ozone = max(`1st Max Value`, na.rm = TRUE))
+
+map_data_states <- left_join(us_states, ozone_data_states, by="region")
+
+# create the choropleth
+ggplot(map_data_states, aes(x=long, y=lat, group=group, fill=ozone_avg)) +
+  geom_polygon(color="white") +  # boundary color
+  coord_fixed(1.3) +
+  scale_fill_viridis_c(option="magma") +
+  labs(title="Average Ozone Concentration by State",
+       fill="Ozone") +
+  theme_minimal()
+
+```
+
+
+Trying continuous heatmap
+```{r}
+library(gganimate)
+
+map_data_merged <- merge(us_states, ozone_data_states, by="region")
+
+p <- ggplot(map_data_states, aes(long, lat, group=group, fill=ozone_avg)) +
+  geom_polygon(color="white", size=0.1) +
+  coord_fixed(1.3) +
+  scale_fill_viridis_c(option="magma") +
+  labs(
+    title = "Average Ozone by State",
+    subtitle = "Year: {frame_time}",
+    x = NULL, y = NULL
+  ) +
+  theme_minimal() +
+  # Animate by 'Year':
+  transition_time(Year)
+
+# Render the animation:
+anim <- animate(p, nframes = 100, fps = 10, renderer = gifski_renderer())
+class(anim)
+anim_save(filename="ozone_animation.gif", animation=anim, path="../results/")
+
 ```
